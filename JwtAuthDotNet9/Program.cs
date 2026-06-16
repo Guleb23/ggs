@@ -56,6 +56,9 @@ builder.Services.AddCors(opt =>
 var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
+    var context = scope.ServiceProvider.GetRequiredService<UserDbContext>();
+    await context.Database.MigrateAsync();
+
     var seeder = scope.ServiceProvider.GetRequiredService<BookSeeder>();
     await seeder.SeedInitialBooksAsync();
 }
