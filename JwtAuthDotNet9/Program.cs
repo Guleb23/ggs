@@ -54,14 +54,21 @@ builder.Services.AddCors(opt =>
 
 
 var app = builder.Build();
+
+// Применяем миграции синхронно (это быстро)
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<UserDbContext>();
     await context.Database.MigrateAsync();
+}
 
+// Запускаем сидер в фоне — не блокируем запуск приложения
+_ = Task.Run(async () =>
+{
+    using var scope = app.Services.CreateScope();
     var seeder = scope.ServiceProvider.GetRequiredService<BookSeeder>();
     await seeder.SeedInitialBooksAsync();
-}
+});
 
 app.UseCors("allow");
 

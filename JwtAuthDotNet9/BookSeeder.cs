@@ -26,11 +26,18 @@ namespace booksa
             try
             {
                 // Проверяем, есть ли уже книги в базе
-                var existingBooks = await _bookService.GetAllBooksAsync();
-                if (existingBooks.Any())
+                try
                 {
-                    _logger.LogInformation("База данных уже содержит книги. Пропускаем начальное наполнение.");
-                    return;
+                    var existingBooks = await _bookService.GetAllBooksAsync();
+                    if (existingBooks.Any())
+                    {
+                        _logger.LogInformation("База данных уже содержит книги. Пропускаем начальное наполнение.");
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Не удалось проверить существующие книги (возможно таблица ещё пуста). Продолжаем наполнение.");
                 }
 
                 _logger.LogInformation("Начинаем загрузку 100 книг из Google Books API...");
