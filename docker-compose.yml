@@ -1,0 +1,52 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: booksa-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: randomd
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 20033002
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./JwtAuthDotNet9
+      dockerfile: Dockerfile
+    container_name: booksa-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      ASPNETCORE_URLS: http://+:5000
+      ConnectionStrings__UserDatabase: "host=db;port=5432;Database=randomd;Username=postgres;password=20033002"
+      AppSettings__Token: "MySuperSecureAndRandomKeyThatLooksJustAwesomeAndNeedsToBeVeryVeryLong!!!111oneeleven"
+      AppSettings__Issuer: "MyAwesomeApp"
+      AppSettings__Audience: "MyAwesomeAudience"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./Front
+      dockerfile: Dockerfile
+    container_name: booksa-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
