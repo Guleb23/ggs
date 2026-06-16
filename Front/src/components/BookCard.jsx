@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Star, BookOpen } from 'lucide-react'
 
 export const BookCard = ({ book }) => {
+  if (!book) return null
   const avgRating = book.averageRating || 0
   const reviewCount = book.reviewCount || 0
 

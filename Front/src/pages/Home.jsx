@@ -144,8 +144,8 @@ export const Home = () => {
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`inline-flex items-center px-5 py-3 rounded-xl font-medium transition-all ${activeTab === tab
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg'
-                  : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg'
+                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 hover:border-gray-300'
                 }`}
             >
               {getTabIcon(tab)}
@@ -180,7 +180,7 @@ export const Home = () => {
         {!loading && !error && books.length > 0 && (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {books.map(book => (
+              {books.filter(Boolean).map(book => (
                 <BookCard key={book.id} book={book} />
               ))}
             </div>
