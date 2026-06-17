@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Star, Send, Trash2, Edit2, BookOpen, User, Calendar, Clock, Heart, Share2, ChevronLeft, Bookmark } from 'lucide-react'
 import { reviewsService } from '../services/reviewsService'
-import { booksService } from '../services/booksService' // Предполагаем, что есть такой сервис
+import { booksService } from '../services/booksService'
 import { useAuth } from '../context/AuthContext'
 
 export const BookDetail = () => {
@@ -21,6 +21,7 @@ export const BookDetail = () => {
   const [editContent, setEditContent] = useState('')
   const [liked, setLiked] = useState(false)
   const [isFavorite, setIsFavorite] = useState(false)
+  const [duplicateError, setDuplicateError] = useState(null)
 
   useEffect(() => {
     fetchBookData()
@@ -30,7 +31,7 @@ export const BookDetail = () => {
   const fetchBookData = async () => {
     try {
       setBookLoading(true)
-      const data = await booksService.getDetail(bookId) // Используем ваш метод getDetail
+      const data = await booksService.getDetail(bookId)
       setBook(data)
       setError(null)
     } catch (err) {
@@ -63,12 +64,19 @@ export const BookDetail = () => {
 
     try {
       setSubmitting(true)
+      setDuplicateError(null)
       await reviewsService.createReview(parseInt(bookId), rating, content)
       setContent('')
       setRating(5)
       await fetchReviews()
+      await fetchBookData()
     } catch (err) {
-      setError(err.message || 'Не удалось отправить отзыв')
+      const msg = typeof err === 'string' ? err : err.message || ''
+      if (msg.includes('уже оставили') || msg.includes('already')) {
+        setDuplicateError('Вы уже оставили отзыв на эту книгу. Можно редактировать или удалить существующий.')
+      } else {
+        setError(msg || 'Не удалось отправить отзыв')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -99,6 +107,7 @@ export const BookDetail = () => {
       try {
         await reviewsService.deleteReview(id)
         await fetchReviews()
+        await fetchBookData()
       } catch (err) {
         setError(err.message || 'Не удалось удалить отзыв')
       }
@@ -119,7 +128,6 @@ export const BookDetail = () => {
 
   const toggleFavorite = () => {
     setIsFavorite(!isFavorite)
-    // Здесь можно добавить запрос к API для добавления/удаления из избранного
   }
 
   const getRatingColor = (rating) => {
@@ -138,7 +146,6 @@ export const BookDetail = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white py-8">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Кнопка назад */}
         <Link
           to="/"
           className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-6 transition-colors"
@@ -147,7 +154,6 @@ export const BookDetail = () => {
           <span className="ml-1">Назад к книгам</span>
         </Link>
 
-        {/* Шапка с информацией о книге */}
         {bookLoading ? (
           <div className="bg-white rounded-2xl shadow-xl p-12 text-center">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div>
@@ -157,7 +163,6 @@ export const BookDetail = () => {
           <div className="mb-12">
             <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
               <div className="md:flex">
-                {/* Обложка книги */}
                 <div className="md:w-1/3 p-8">
                   <div className="relative">
                     <div className="aspect-[3/4] rounded-xl overflow-hidden shadow-2xl">
@@ -196,7 +201,6 @@ export const BookDetail = () => {
                   </div>
                 </div>
 
-                {/* Информация о книге */}
                 <div className="md:w-2/3 p-8">
                   <div className="mb-6">
                     <div className="flex items-center justify-between mb-4">
@@ -205,73 +209,58 @@ export const BookDetail = () => {
                         {(book.averageRating || 0).toFixed(1)} ★
                       </div>
                     </div>
-
                     <p className="text-xl text-gray-700 mb-4 flex items-center">
                       <User size={20} className="mr-2 text-gray-400" />
                       {book.author || 'Автор не указан'}
                     </p>
-
                     {book.genre && (
                       <div className="flex flex-wrap gap-2 mb-4">
                         {book.genre.split(',').map((genre, index) => (
-                          <span
-                            key={index}
-                            className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
-                          >
+                          <span key={index} className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
                             {genre.trim()}
                           </span>
                         ))}
                       </div>
                     )}
                   </div>
-
                   <div className="mb-6">
                     <p className="text-gray-700 leading-relaxed">
                       {book.description || 'Описание книги отсутствует.'}
                     </p>
                   </div>
-
-                  {/* Детали книги */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                     <div className="bg-gray-50 p-4 rounded-xl">
                       <p className="text-sm text-gray-500 mb-1">Рейтинг</p>
                       <div className="flex items-center">
                         <Star size={16} className="text-yellow-400 fill-yellow-400 mr-1" />
                         <span className="font-bold text-lg">{(book.averageRating || 0).toFixed(1)}</span>
-                        <span className="text-gray-500 text-sm ml-1">
-                          ({book.reviewCount || 0})
-                        </span>
+                        <span className="text-gray-500 text-sm ml-1">({book.reviewCount || 0})</span>
                       </div>
                     </div>
-
                     {book.pages && (
                       <div className="bg-gray-50 p-4 rounded-xl">
                         <p className="text-sm text-gray-500 mb-1">Страниц</p>
                         <p className="font-bold text-lg">{book.pages}</p>
                       </div>
                     )}
-
                     {book.publishedYear && (
                       <div className="bg-gray-50 p-4 rounded-xl">
                         <p className="text-sm text-gray-500 mb-1">Год издания</p>
                         <p className="font-bold text-lg">{book.publishedYear}</p>
                       </div>
                     )}
-
                     {book.publisher && (
                       <div className="bg-gray-50 p-4 rounded-xl">
                         <p className="text-sm text-gray-500 mb-1">Издательство</p>
                         <p className="font-bold text-lg truncate">{book.publisher}</p>
                       </div>
                     )}
-
                     {book.isbn && (
                       <div className="bg-gray-50 p-4 rounded-xl md:col-span-2">
                         <p className="text-sm text-gray-500 mb-1">ISBN</p>
                         <p className="font-bold text-lg font-mono">{book.isbn}</p>
                       </div>
                     )}
-
                     {book.language && (
                       <div className="bg-gray-50 p-4 rounded-xl">
                         <p className="text-sm text-gray-500 mb-1">Язык</p>
@@ -279,8 +268,6 @@ export const BookDetail = () => {
                       </div>
                     )}
                   </div>
-
-
                 </div>
               </div>
             </div>
@@ -289,18 +276,13 @@ export const BookDetail = () => {
           <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-8 rounded-2xl text-center">
             <p className="text-lg mb-2">Ошибка загрузки книги</p>
             <p className="text-sm">{error}</p>
-            <button
-              onClick={fetchBookData}
-              className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
-            >
+            <button onClick={fetchBookData} className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
               Попробовать снова
             </button>
           </div>
         ) : null}
 
-        {/* Основное содержимое - отзывы */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Форма добавления отзыва */}
           <div className="lg:col-span-1">
             {isAuthenticated && (
               <div className="bg-white p-6 rounded-2xl shadow-lg sticky top-8">
@@ -309,11 +291,20 @@ export const BookDetail = () => {
                   Ваш отзыв
                 </h2>
 
+                {duplicateError && (
+                  <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded-xl mb-4 flex items-start">
+                    <span className="mr-2 text-lg">⚠️</span>
+                    <div>
+                      <p className="font-semibold">Вы уже оставили отзыв!</p>
+                      <p className="text-sm mt-1">Можно отредактировать или удалить его в списке ниже.</p>
+                    </div>
+                    <button onClick={() => setDuplicateError(null)} className="ml-auto text-amber-500 hover:text-amber-700 font-bold">✕</button>
+                  </div>
+                )}
+
                 <form onSubmit={handleSubmitReview} className="space-y-6">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-3">
-                      Ваша оценка
-                    </label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-3">Ваша оценка</label>
                     <div className="flex space-x-1">
                       {[1, 2, 3, 4, 5].map(r => (
                         <button
@@ -330,11 +321,8 @@ export const BookDetail = () => {
                       <span className="text-sm font-semibold text-gray-700">{rating}.0 из 5</span>
                     </div>
                   </div>
-
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Текст отзыва
-                    </label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Текст отзыва</label>
                     <textarea
                       value={content}
                       onChange={(e) => setContent(e.target.value)}
@@ -344,7 +332,6 @@ export const BookDetail = () => {
                       disabled={submitting}
                     />
                   </div>
-
                   <button
                     type="submit"
                     disabled={submitting}
@@ -367,7 +354,6 @@ export const BookDetail = () => {
             )}
           </div>
 
-          {/* Список отзывов */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
               <div className="p-6 border-b border-gray-100">
@@ -395,6 +381,7 @@ export const BookDetail = () => {
                 <div className="m-6 bg-red-50 border border-red-100 text-red-700 px-4 py-3 rounded-xl flex items-center">
                   <span className="mr-2">⚠️</span>
                   {error}
+                  <button onClick={() => setError(null)} className="ml-auto text-red-500 hover:text-red-700 font-bold">✕</button>
                 </div>
               )}
 
@@ -411,10 +398,7 @@ export const BookDetail = () => {
                   <h3 className="text-xl font-semibold text-gray-700 mb-2">Отзывов пока нет</h3>
                   <p className="text-gray-500">Будьте первым, кто поделится своим мнением!</p>
                   {!isAuthenticated && (
-                    <Link
-                      to="/login"
-                      className="inline-block mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                    >
+                    <Link to="/login" className="inline-block mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
                       Войти, чтобы оставить отзыв
                     </Link>
                   )}
@@ -426,14 +410,11 @@ export const BookDetail = () => {
                       {editingId === review.id ? (
                         <div className="space-y-6 bg-gray-50 p-6 rounded-xl">
                           <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-3">
-                              Изменить оценку
-                            </label>
+                            <label className="block text-sm font-semibold text-gray-700 mb-3">Изменить оценку</label>
                             <div className="flex space-x-1">
                               {[1, 2, 3, 4, 5].map(r => (
                                 <button
-                                  key={r}
-                                  type="button"
+                                  key={r} type="button"
                                   onClick={() => setEditRating(r)}
                                   className={`transition-transform ${editRating >= r ? 'text-yellow-400' : 'text-gray-300'}`}
                                 >
@@ -472,56 +453,35 @@ export const BookDetail = () => {
                                 {review.userName ? review.userName.charAt(0).toUpperCase() : 'Ч'}
                               </div>
                               <div>
-                                <p className="font-semibold text-gray-900">
-                                  {review.userName || 'Читатель'}
-                                </p>
+                                <p className="font-semibold text-gray-900">{review.userName || 'Читатель'}</p>
                                 <div className="flex items-center space-x-2 text-sm text-gray-500">
-                                  <div className="flex items-center">
-                                    <Calendar size={12} className="mr-1" />
-                                    {formatDate(review.createdAt)}
-                                  </div>
+                                  <Calendar size={12} className="mr-1" />
+                                  {formatDate(review.createdAt)}
                                   <span>•</span>
-                                  <div className="flex items-center">
-                                    <Star size={12} className="mr-1 text-yellow-400 fill-yellow-400" />
-                                    {review.rating}.0
-                                  </div>
+                                  <Star size={12} className="mr-1 text-yellow-400 fill-yellow-400" />
+                                  {review.rating}.0
                                 </div>
                               </div>
                             </div>
-
                             {isAuthenticated && user?.username === review.userName && (
                               <div className="flex space-x-2">
-                                <button
-                                  onClick={() => startEdit(review)}
-                                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                                  title="Редактировать"
-                                >
+                                <button onClick={() => startEdit(review)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Редактировать">
                                   <Edit2 size={18} />
                                 </button>
-                                <button
-                                  onClick={() => handleDeleteReview(review.id)}
-                                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
-                                  title="Удалить"
-                                >
+                                <button onClick={() => handleDeleteReview(review.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition" title="Удалить">
                                   <Trash2 size={18} />
                                 </button>
                               </div>
                             )}
                           </div>
-
-                          <p className="text-gray-700 leading-relaxed whitespace-pre-line mb-4">
-                            {review.content}
-                          </p>
-
+                          <p className="text-gray-700 leading-relaxed whitespace-pre-line mb-4">{review.content}</p>
                           <div className="flex items-center justify-between text-sm text-gray-500">
                             <div className="flex items-center space-x-4">
                               <button className="flex items-center space-x-1 hover:text-blue-600 transition">
-                                <span>👍</span>
-                                <span>Полезно</span>
+                                <span>👍</span><span>Полезно</span>
                               </button>
                               <button className="flex items-center space-x-1 hover:text-blue-600 transition">
-                                <span>💬</span>
-                                <span>Ответить</span>
+                                <span>💬</span><span>Ответить</span>
                               </button>
                             </div>
                             <div className="flex items-center">
