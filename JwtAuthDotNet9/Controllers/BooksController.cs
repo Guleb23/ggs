@@ -337,9 +337,13 @@ namespace booksa.Controllers
                     b.Id,
                     b.Title,
                     b.Author,
+                    b.Description,
                     b.CoverUrl,
                     b.AddedAt,
-                    ReviewCount = b.Reviews?.Count ?? 0
+                    ReviewCount = b.Reviews?.Count ?? 0,
+                    AverageRating = b.Reviews?.Any() == true
+                        ? Math.Round(b.Reviews.Average(r => r.Rating), 1)
+                        : 0
                 });
 
                 return Ok(result);
