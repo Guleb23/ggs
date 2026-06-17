@@ -16,13 +16,28 @@ namespace booksa
 
         public async Task SeedInitialBooksAsync()
         {
+            var seedBooks = GetSeedBooks();
+
             try
             {
                 var existingBooks = await _bookService.GetAllBooksAsync();
-                if (existingBooks.Any())
+                if (existingBooks.Count >= seedBooks.Count)
                 {
-                    _logger.LogInformation("База данных уже содержит книги. Пропускаем начальное наполнение.");
+                    _logger.LogInformation("База данных уже содержит {Count} книг. Пропускаем начальное наполнение.", existingBooks.Count);
                     return;
+                }
+
+                if (existingBooks.Count > 0)
+                {
+                    _logger.LogInformation("Найдено {Count} книг. Добавляем недостающие...", existingBooks.Count);
+
+                    // Удаляем те, что уже есть, чтобы не дублировать
+                    var existingIsbns = existingBooks.Where(b => !string.IsNullOrEmpty(b.Isbn)).Select(b => b.Isbn).ToHashSet();
+                    var existingTitles = existingBooks.Select(b => b.Title.ToLower()).ToHashSet();
+                    seedBooks = seedBooks.Where(b =>
+                        (string.IsNullOrEmpty(b.Isbn) || !existingIsbns.Contains(b.Isbn)) &&
+                        !existingTitles.Contains(b.Title.ToLower())
+                    ).ToList();
                 }
             }
             catch
@@ -30,10 +45,16 @@ namespace booksa
                 // Таблица ещё пуста — продолжаем
             }
 
-            _logger.LogInformation("Начинаем заполнение базы 50+ книгами...");
+            if (seedBooks.Count == 0)
+            {
+                _logger.LogInformation("Все книги уже добавлены.");
+                return;
+            }
+
+            _logger.LogInformation("Начинаем заполнение базы {Count} книгами...", seedBooks.Count);
 
             int saved = 0;
-            foreach (var bookDto in GetSeedBooks())
+            foreach (var bookDto in seedBooks)
             {
                 try
                 {
